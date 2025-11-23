@@ -9,4 +9,6 @@ dependencies = [
     "boto3>=1.41.2",
     "peewee>=3.18.3",
     "python-dotenv>=1.2.1",
+    "termcolor>=3.2.0",
+    "tqdm>=4.67.1",
 ]
