@@ -11,16 +11,14 @@ from .r2_client import R2Client
 
 
 class ImageGenerator:
-    def __init__(self, source_dir: str, target_dir: str, base_image_path: str) -> None:
+    def __init__(self, source_dir: str) -> None:
         self.api_key = os.getenv("WAVESPEED_API_KEY")
         self.url = "https://api.wavespeed.ai/api/v3/bytedance/seedream-v4/edit"
         self.source_dir = source_dir
-        self.target_dir = target_dir
-        self.base_image_path = base_image_path
-        self.r2_client = R2Client(base_image_path)
+        self.r2_client = R2Client()
 
 
-    async def upload_file(self, file_path: str, file_name: str) -> str:
+    async def upload_file(self, file_path: str) -> str:
         try:
             return await self.r2_client.upload_image(file_path)
         except Exception as e:
@@ -41,7 +39,7 @@ class ImageGenerator:
                 continue
             dataset_list.append((
                 file_name,
-                await self.upload_file(os.path.join(self.source_dir, image_file), file_name),
+                await self.upload_file(os.path.join(self.source_dir, image_file)),
                 open(os.path.join(self.source_dir, description_file), "r").read()
             ))
         return dataset_list
@@ -51,7 +49,6 @@ class ImageGenerator:
         responses = []
         files = await self.get_files()
         for file_name, image, description in files:
-    
             cprint(f"Processing {file_name}...", "yellow")
             try:
                 payload = {

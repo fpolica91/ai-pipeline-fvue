@@ -16,10 +16,9 @@ import time
 from config import CACHE_DIR
 
 class R2Client:
-    def __init__(self, image_path: str):
+    def __init__(self):
         self.api_key = os.getenv("WAVESPEED_API_KEY")
         self.url = "https://api.wavespeed.ai/api/v3/bytedance/seedream-v4/edit"
-        self.image_path = image_path
         self.bucket_name = os.getenv('R2_BUCKET_NAME')
         self.r2_account_id = os.getenv('R2_ACCOUNT_ID')
         self.r2_access_key_id = os.getenv('R2_ACCESS_KEY_ID')
