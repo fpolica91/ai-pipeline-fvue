@@ -5,8 +5,6 @@ from dotenv import load_dotenv
 import aiohttp
 from termcolor import cprint
 load_dotenv()
-import asyncio
-from tqdm import tqdm
 from .r2_client import R2Client
 
 
@@ -31,7 +29,6 @@ class ImageGenerator:
             
 
     async def get_files(self) -> list[str]:
-        cprint(f"Getting files from {self.source_dir}...", "yellow")
         dataset = sorted(os.listdir(self.source_dir))
         txt_files = set(f for f in dataset if f.endswith(".txt"))
         image_files = set(f for f in dataset if f.endswith((".jpg", ".jpeg", ".png")))
