@@ -1,0 +1,12 @@
+[project]
+name = "ai-pipeline"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "aiohttp>=3.13.2",
+    "boto3>=1.41.2",
+    "peewee>=3.18.3",
+    "python-dotenv>=1.2.1",
+]
