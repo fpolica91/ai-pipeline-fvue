@@ -107,9 +107,35 @@ class ImageProcessorPipeline:
             return False
 
 
+    async def poll_result(self, url: str, job_id: str) -> tuple[str, str]:
+        while True:
+            await asyncio.sleep(3)
+            async with aiohttp.ClientSession() as poll_session:
+                async with poll_session.get(url, headers = {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {self.api_key}"
+                }) as poll_response:
+                    if poll_response.status == 200:
+                        data = await poll_response.json()
+                        status = data.get("data", {}).get("status", None)
+                        cprint(f"Status: {status}", "yellow")
+                        if status == "completed":
+                            cprint(f"Result completed", "green")
+                            r2_key, r2_url = await self.download_and_upload_result(data)
+                            await self.update_job(job_id, {
+                                "wavespeed_result_url": url,
+                                "r2_image_key": r2_key,
+                                "r2_presigned_url": r2_url,
+                                "status": "completed"
+                            })
+                            return r2_key, r2_url
+                    else:
+                        text = await poll_response.text()
+                        print(f"Error: {poll_response.status} {text}")
+
+
 
     async def process_images(self) -> None:
-        responses = []
         lia_image = await self.upload_file(self.lia_image_path)
         lia_image_key = os.path.basename(self.lia_image_path)
         files = await self.get_files()
@@ -143,39 +169,7 @@ class ImageProcessorPipeline:
                         if response.status == 200:
                             resp_data = await response.json()
                             url = resp_data.get("data", {}).get("urls", {}).get("get", None)
-                            status = resp_data.get("data", {}).get("status", None)
-
-                            while status not in ["completed", "failed"]:
-                                cprint(f"Waiting for result... {status}", "yellow")
-                                await asyncio.sleep(3)
-                            
-                                async with aiohttp.ClientSession() as poll_session:
-                                    async with poll_session.get(url, headers = {
-                                        "Content-Type": "application/json",
-                                        "Authorization": f"Bearer {self.api_key}"
-                                    }) as poll_response:
-                                        if poll_response.status == 200:
-                                            data = await poll_response.json()
-                                            status = data.get("data", {}).get("status", None)
-                                            if status == "completed":
-                                                cprint(f"Result completed", "green")
-                                                r2_key, r2_url = await self.download_and_upload_result(data)
-                                                await self.update_job(job_id, {
-                                                    "wavespeed_result_url": url,
-                                                    "r2_image_key": r2_key,
-                                                    "r2_presigned_url": r2_url,
-                                                    "status": "completed"
-                                                })
-                                                break
-                                        else:
-                                            text = await poll_response.text()
-                                            print(f"Error: {poll_response.status} {text}")
-                        else:
-                            text = await response.text()
-                            print(f"Error: {response.status} {text}")
-                
-                return responses
-                            
+                            await self.poll_result(url, job_id)
             
             except Exception as e:
                 print(f"Error processing image: {e}")
