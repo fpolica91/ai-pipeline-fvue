@@ -1,0 +1,12 @@
+{
+  "lia.jpg": {
+    "url": "https://8126d9a1c1f23902baec543d12d1ce9d.r2.cloudflarestorage.com/michela/lia.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=08634af874cb87eca555bba0374cfeed%2F20251124%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20251124T011640Z&X-Amz-Expires=72000&X-Amz-SignedHeaders=host&X-Amz-Signature=0ecf7c8511d84c0acfb87b029745e25b52b2c442ce2cd71f6b90e9f93c3a326b",
+    "timestamp": 1763947000.902705,
+    "expires_in": 72000
+  },
+  "target_000.jpg": {
+    "url": "https://8126d9a1c1f23902baec543d12d1ce9d.r2.cloudflarestorage.com/michela/target_000.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=08634af874cb87eca555bba0374cfeed%2F20251124%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20251124T011641Z&X-Amz-Expires=72000&X-Amz-SignedHeaders=host&X-Amz-Signature=f96a3283a3f4efa80b31a6e98b0413fa62d55441f7a6adfd14f208d100a6fbdb",
+    "timestamp": 1763947001.215663,
+    "expires_in": 72000
+  }
+}

@@ -1,62 +1,64 @@
-from imp import reload
 import gradio as gr
-import os
 import tempfile
 import asyncio
 from pathlib import Path
+from PIL import Image
 from utils.image_generator import ImageProcessorPipeline
 from dotenv import load_dotenv
 from utils.grok import generate_seedream_prompt
+from termcolor import cprint
+
 load_dotenv()
 
-async def generate_descriptions_with_grok(image_files):
+async def generate_descriptions_with_grok(lia_image_path: str, target_image_paths: list[str]):
     """
-    TODO: Implement Grok API call to generate descriptions for images
-    For now, returns placeholder descriptions
+    Generate descriptions for target images using Grok API
     """
-    descriptions = []
-    for i, image_file in enumerate(image_files):
-        # Placeholder - replace with actual Grok API call
-        desc = f"A beautiful portrait of a person in image {i+1}"
-        descriptions.append(desc)
-    return descriptions
+    prompts = []
+    for target_path in target_image_paths:
+        prompt = await generate_seedream_prompt(target_path, lia_image_path)
+        cprint(f"Prompt: {prompt}", "yellow")
+        prompts.append(prompt)
+    return prompts
 
-async def process_images_pipeline(reference_image, target_images, use_grok=False):
+async def process_images_pipeline(lia_image, target_images):
     """
     Main pipeline function that processes images
     """
-    if not reference_image or not target_images:
-        return "Error: Please upload both reference image and target images."
+    if not lia_image or not target_images:
+        return "Error: Please upload both lia image and target images."
     
     try:
         # Create temporary directory for processing
         with tempfile.TemporaryDirectory() as temp_dir:
             # Create temporary path for processing
             temp_path = Path(temp_dir)
-            # Save reference image
-            ref_path = temp_path / "reference.jpg"
-            reference_image.save(ref_path)
-            # Save target images
-            for i, target_img in enumerate(target_images):
+            # Save lia image
+            lia_path = temp_path / "lia.jpg"
+            lia_image.save(lia_path)
+            # Save target images (convert from file uploads to PIL Images)
+            for i, target_file in enumerate(target_images):
+                target_img = Image.open(target_file.name)
                 img_name = f"target_{i:03d}"
                 img_path = temp_path / f"{img_name}.jpg"
                 target_img.save(img_path)
 
+            # Generate all descriptions at once
+            target_paths = [str(temp_path / f"target_{i:03d}.jpg") for i in range(len(target_images))]
+            descriptions = await generate_descriptions_with_grok(str(lia_path), target_paths)
+            
+            # Write description files
+            for i, description in enumerate(descriptions):
+                img_name = f"target_{i:03d}"
                 desc_path = temp_path / f"{img_name}.txt"
-                if use_grok:
-                    descriptions = await generate_descriptions_with_grok([target_img])
-                    description = descriptions[0]
-                else:
-                    # Use default description
-                    description = "Portrait of a young woman with long straight jet-black hair parted in the center, piercing ice-blue eyes with sharp reflections, long dark lashes, and subtle liner, smooth flawless tanned skin with natural pores, subtle glossy nude-pink lips slightly parted, high cheekbones, confident direct gaze at viewer. Clean seamless white studio background, soft even frontal key light, subtle rim light, high-key lighting, no shadows on face."
-                
+               
                 with open(desc_path, 'w') as f:
                     f.write(description)
             
             # Initialize and run the pipeline
             pipeline = ImageProcessorPipeline(
                 source_dir=str(temp_path),
-                reference_image_path=str(ref_path)
+                lia_image_path=str(lia_path)
             )
             
             await pipeline.process_images()
@@ -66,30 +68,30 @@ async def process_images_pipeline(reference_image, target_images, use_grok=False
     except Exception as e:
         return f"Error processing images: {str(e)}"
 
-def run_pipeline(reference_image, target_images, use_grok):
+def run_pipeline(lia_image, target_images):
     """
     Wrapper function to run async pipeline in Gradio
     """
-    return asyncio.run(process_images_pipeline(reference_image, target_images, use_grok))
+    return asyncio.run(process_images_pipeline(lia_image, target_images))
 
 # Create Gradio interface
 with gr.Blocks(title="AI Image Processing Pipeline") as demo:
     gr.Markdown("""
     # 🎨 AI Image Processing Pipeline
     
-    Upload a reference image and multiple target images to generate face-swapped results using AI.
+    Upload a lia image and multiple target images to generate face-swapped results using AI.
     
     ## How it works:
-    1. **Upload Reference Image**: The face from this image will be swapped into target images
-    2. **Upload Target Images**: Multiple images that will receive the reference face
-    3. **Generate Descriptions**: Optionally use Grok AI to generate descriptions (or use default)
+    1. **Upload Lia Image**: The face from this image will be swapped into target images
+    2. **Upload Target Images**: Multiple images that will receive the lia face
+    3. **Generate Descriptions**: Use Grok AI to generate descriptions automatically
     4. **Process**: Run the Wavespeed AI pipeline to generate results
     """)
     
     with gr.Row():
         with gr.Column():
-            reference_input = gr.Image(
-                label="Reference Image", 
+            lia_input = gr.Image(
+                label="Lia Image", 
                 type="pil",
                 height=300
             )
@@ -98,11 +100,6 @@ with gr.Blocks(title="AI Image Processing Pipeline") as demo:
                 label="Target Images", 
                 file_count="multiple",
                 file_types=["image"]
-            )
-            
-            use_grok_checkbox = gr.Checkbox(
-                label="Generate descriptions with Grok AI", 
-                value=False
             )
             
             process_btn = gr.Button("🚀 Start Processing", variant="primary", size="lg")
@@ -117,15 +114,16 @@ with gr.Blocks(title="AI Image Processing Pipeline") as demo:
     # Event handlers
     process_btn.click(
         fn=run_pipeline,
-        inputs=[reference_input, target_inputs, use_grok_checkbox],
+        inputs=[lia_input, target_inputs],
         outputs=[output_text]
     )
     
     # Example section
     gr.Markdown("""
     ## 💡 Tips:
-    - Use high-quality reference images for better results
+    - Use high-quality lia images for better results
     - Target images should be portraits for best face swapping results
+    - Descriptions are automatically generated using Grok AI
     - Processing time depends on number of images and Wavespeed API response
     - Results will be processed through the Wavespeed AI service
     """)

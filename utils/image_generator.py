@@ -12,15 +12,15 @@ from .r2_client import R2Client
 
 class ImageProcessorPipeline:
     """
-    Class for swapping face of reference into target image
+    Class for swapping face of lia into target image
     """
 
-    def __init__(self, source_dir: str, reference_image_path: str) -> None:
+    def __init__(self, source_dir: str, lia_image_path: str) -> None:
         self.api_key = os.getenv("WAVESPEED_API_KEY")
         self.url = "https://api.wavespeed.ai/api/v3/bytedance/seedream-v4/edit"
         self.source_dir = source_dir
         self.r2_client = R2Client()
-        self.reference_image_path = reference_image_path
+        self.lia_image_path = lia_image_path
         
 
 
@@ -36,8 +36,16 @@ class ImageProcessorPipeline:
         dataset = sorted(os.listdir(self.source_dir))
         txt_files = set(f for f in dataset if f.endswith(".txt"))
         image_files = set(f for f in dataset if f.endswith((".jpg", ".jpeg", ".png")))
+        
+        # Get lia image filename to exclude it from target processing
+        lia_filename = os.path.basename(self.lia_image_path)
+        
         dataset_list = []
         for image_file in image_files:
+            # Skip the lia image - it's not a target image
+            if image_file == lia_filename:
+                continue
+                
             file_name = image_file.split(".")[0]
             description_file = f"{file_name}.txt"
             if description_file not in txt_files:
@@ -53,7 +61,7 @@ class ImageProcessorPipeline:
 
     async def process_images(self) -> None:
         responses = []
-        reference_image = await self.upload_file(self.reference_image_path)
+        lia_image = await self.upload_file(self.lia_image_path)
         files = await self.get_files()
         for file_name, image, description in files:
             cprint(f"Processing {file_name}...", "yellow")
@@ -63,7 +71,7 @@ class ImageProcessorPipeline:
                     "enable_sync_mode": False,
                     "images": [
                         image,
-                        reference_image
+                        lia_image
                     ],
                     "prompt": description,
                     "size": "3072*4096"

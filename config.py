@@ -3,6 +3,6 @@ import os
 
 load_dotenv()
 
-GROK_API_KEY = os.getenv("GROK_API_KEY")
+GROK_API_KEY = os.getenv("OPENAI_API_KEY")
 
 CACHE_DIR='./cache'
