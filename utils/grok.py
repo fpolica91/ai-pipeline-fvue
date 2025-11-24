@@ -34,7 +34,7 @@ Image 2 = LIA TARGET → ONLY apply these traits IF they are visible in the refe
 • rose tattoo on right upper arm ONLY if right upper arm/shoulder is visible
 • gold bangles and rings ONLY if wrists/hands are visible
 • long white nails ONLY if hands are visible
-• very large full round breasts (always apply)
+• large full round breasts (always apply)
 • oiled glistening skin (always apply)
 • perfect symmetrical youthful face (always apply)
 
