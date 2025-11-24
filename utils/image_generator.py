@@ -82,16 +82,19 @@ class ImageProcessorPipeline:
                         "Authorization": f"Bearer {self.api_key}",
                     }) as response:
                         if response.status == 200:
+                            
                             resp_data = await response.json()
+                            url = resp_data.get("data", {}).get("urls", {}).get("get", None)
                             responses.append({
-                                "data": resp_data,
-                                "file_name": file_name,
+                                "url": url,
                             })
+                            cprint(f"Response: {resp_data}", "green")
                     
                         else:
                             text = await response.text()
                             print(f"Error: {response.status} {text}")
                 
+                return responses
                             
             
             except Exception as e:

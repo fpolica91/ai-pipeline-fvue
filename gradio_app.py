@@ -38,7 +38,8 @@ async def process_images_pipeline(lia_image, target_images):
             lia_image.save(lia_path)
             # Save target images (convert from file uploads to PIL Images)
             for i, target_file in enumerate(target_images):
-                target_img = Image.open(target_file.name)
+                target_img = target_file[0]
+                target_img = Image.open(target_img)
                 img_name = f"target_{i:03d}"
                 img_path = temp_path / f"{img_name}.jpg"
                 target_img.save(img_path)
@@ -96,11 +97,13 @@ with gr.Blocks(title="AI Image Processing Pipeline") as demo:
                 height=300
             )
             
-            target_inputs = gr.File(
-                label="Target Images", 
-                file_count="multiple",
-                file_types=["image"]
+            target_inputs = gr.Gallery(
+                label="Target Images",
+                allow_preview=True,
+                preview=True,
+                object_fit="contain",
             )
+            
             
             process_btn = gr.Button("🚀 Start Processing", variant="primary", size="lg")
         
