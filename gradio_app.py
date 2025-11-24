@@ -6,7 +6,7 @@ import asyncio
 from pathlib import Path
 from utils.image_generator import ImageProcessorPipeline
 from dotenv import load_dotenv
-
+from utils.grok import generate_seedream_prompt
 load_dotenv()
 
 async def generate_descriptions_with_grok(image_files):
@@ -31,23 +31,19 @@ async def process_images_pipeline(reference_image, target_images, use_grok=False
     try:
         # Create temporary directory for processing
         with tempfile.TemporaryDirectory() as temp_dir:
+            # Create temporary path for processing
             temp_path = Path(temp_dir)
-            
             # Save reference image
             ref_path = temp_path / "reference.jpg"
             reference_image.save(ref_path)
-            
-            # Save target images and create description files
+            # Save target images
             for i, target_img in enumerate(target_images):
-                # Save image
                 img_name = f"target_{i:03d}"
                 img_path = temp_path / f"{img_name}.jpg"
                 target_img.save(img_path)
-                
-                # Create description file
+
                 desc_path = temp_path / f"{img_name}.txt"
                 if use_grok:
-                    # Generate description with Grok
                     descriptions = await generate_descriptions_with_grok([target_img])
                     description = descriptions[0]
                 else:
@@ -139,5 +135,4 @@ if __name__ == "__main__":
         server_name="0.0.0.0",  # Allow external access
         server_port=7860,
         share=False, # Set to True for public sharing
-        reload=True,
     )

@@ -8,6 +8,7 @@ dependencies = [
     "aiohttp>=3.13.2",
     "boto3>=1.41.2",
     "gradio>=5.50.0",
+    "openai>=2.8.1",
     "peewee>=3.18.3",
     "python-dotenv>=1.2.1",
     "termcolor>=3.2.0",
