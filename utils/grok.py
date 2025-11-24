@@ -17,7 +17,7 @@ async def generate_seedream_prompt(reference_image_path: str, lia_target_path: s
     lia_b64       = encode_image(lia_target_path)      # ← FACE donor
 
     response = await client.chat.completions.create(
-        model="grok-4",
+        model="grok-4-1-fast-non-reasoning",
         temperature=0.1,
         messages=[
             {"role": "system", "content": "You are a strict Seedream 4.0 img2img prompt writer. FIRST image = REFERENCE (keep 100% pose, exact clothing, lighting, background). SECOND image = LIA TARGET (only swap face + traits that are actually visible in the reference). NEVER invent or force hidden features."},

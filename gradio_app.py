@@ -14,12 +14,11 @@ async def generate_descriptions_with_grok(lia_image_path: str, target_image_path
     """
     Generate descriptions for target images using Grok API
     """
-    prompts = []
-    for target_path in target_image_paths:
-        prompt = await generate_seedream_prompt(target_path, lia_image_path)
-        cprint(f"Prompt: {prompt}", "yellow")
-        prompts.append(prompt)
-    return prompts
+    tasks = [generate_seedream_prompt(target_path, lia_image_path) for target_path in target_image_paths]
+    descriptions = await asyncio.gather(*tasks)
+    for description in descriptions:
+        cprint(f"Description: {description}", "yellow")
+    return descriptions
 
 async def process_images_pipeline(lia_image, target_images):
     """

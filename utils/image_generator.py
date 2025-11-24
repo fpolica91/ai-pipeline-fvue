@@ -135,14 +135,9 @@ class ImageProcessorPipeline:
 
 
 
-    async def process_images(self) -> None:
-        lia_image = await self.upload_file(self.lia_image_path)
-        lia_image_key = os.path.basename(self.lia_image_path)
-        files = await self.get_files()
-        for file_name, image, description in files:
-            cprint(f"Processing {file_name}...", "yellow")
-            try:
-                payload = {
+    async def process_single_image(self, file_name: str, image: str, description: str, lia_image: str, lia_image_key: str) -> tuple[str, str]:
+        try:
+            payload = {
                     "enable_base64_output": False,
                     "enable_sync_mode": False,
                     "images": [
@@ -152,7 +147,7 @@ class ImageProcessorPipeline:
                     "prompt": description,
                     "size": "3072*4096"
                 }
-                job_id = await self.create_job({
+            job_id = await self.create_job({
                     "lia_image_key": lia_image_key,
                     "target_image_key": file_name,
                     "wavespeed_result_url": None,
@@ -160,20 +155,34 @@ class ImageProcessorPipeline:
                     "r2_presigned_url": None,
                     "status": "pending"
                 })
+            async with aiohttp.ClientSession() as session:
+                async with session.post(self.url, json=payload, headers = {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {self.api_key}",
+                }) as response:
+                    if response.status == 200:
+                        resp_data = await response.json()
+                        url = resp_data.get("data", {}).get("urls", {}).get("get", None)
+                        await self.poll_result(url, job_id)
                 
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(self.url, json=payload, headers = {
-                        "Content-Type": "application/json",
-                        "Authorization": f"Bearer {self.api_key}",
-                    }) as response:
-                        if response.status == 200:
-                            resp_data = await response.json()
-                            url = resp_data.get("data", {}).get("urls", {}).get("get", None)
-                            await self.poll_result(url, job_id)
-            
+            return job_id
+        except Exception as e:
+            print(f"Error processing single image: {e}")
+            return None
+
+    async def process_images(self) -> list[str]:
+        lia_image = await self.upload_file(self.lia_image_path)
+        lia_image_key = os.path.basename(self.lia_image_path)
+        tasks = []
+        files = await self.get_files()
+        for file_name, image, description in files:
+            cprint(f"Processing {file_name}...", "yellow")
+            try:
+                tasks.append(self.process_single_image(file_name, image, description, lia_image, lia_image_key))
             except Exception as e:
                 print(f"Error processing image: {e}")
-             
+        results = await asyncio.gather(*tasks)
+        return results
 
 
 
