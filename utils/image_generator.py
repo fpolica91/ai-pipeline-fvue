@@ -79,6 +79,7 @@ class ImageProcessorPipeline:
                                 "data": resp_data,
                                 "file_name": file_name,
                             })
+                    
                         else:
                             text = await response.text()
                             print(f"Error: {response.status} {text}")
