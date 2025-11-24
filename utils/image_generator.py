@@ -6,8 +6,10 @@ import aiohttp
 from termcolor import cprint
 load_dotenv()
 from .r2_client import R2Client
-
-
+from database.client import DatabaseClient, Job
+import tempfile
+import aiofiles
+import asyncio
 
 
 class ImageProcessorPipeline:
@@ -21,6 +23,7 @@ class ImageProcessorPipeline:
         self.source_dir = source_dir
         self.r2_client = R2Client()
         self.lia_image_path = lia_image_path
+        self.database_client = DatabaseClient()
         
 
 
@@ -59,9 +62,56 @@ class ImageProcessorPipeline:
         return dataset_list
 
 
+
+    async def create_job(self, job: Job) -> str:
+        try:
+            return await self.database_client.create_job(job)
+        except Exception as e:
+            print(f"Error creating job: {e}")
+            return None
+
+    async def download_and_upload_result(self, completed_data: dict) -> str:
+        try:
+            outputs = completed_data.get("data", {}).get("outputs", [])
+            if not outputs:
+                cprint(f"No outputs found", "red")
+                return None, None
+            output = outputs[0]
+
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(output) as response:
+                    if response.status == 200:
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpeg") as temp_file:
+                            temp_path = temp_file.name
+                            async with aiofiles.open(temp_path, "wb") as f:
+                                await f.write(await response.read())
+                        r2_url = await self.r2_client.upload_image(temp_path)
+                        r2_key = os.path.basename(temp_path)
+                        os.unlink(temp_path)
+                        return r2_key, r2_url
+                    else:
+                        print(f"Error downloading result: {response.status}")
+                        return None
+
+        except Exception as e:
+            print(f"Error downloading and uploading result: {e}")
+            return None
+
+    async def update_job(self, job_id: str, job: Job) -> bool:
+        try:
+
+            return await self.database_client.update_job(job_id, job)
+        except Exception as e:
+            print(f"Error updating job: {e}")
+            return False
+
+
+
     async def process_images(self) -> None:
         responses = []
         lia_image = await self.upload_file(self.lia_image_path)
+        lia_image_key = os.path.basename(self.lia_image_path)
         files = await self.get_files()
         for file_name, image, description in files:
             cprint(f"Processing {file_name}...", "yellow")
@@ -76,20 +126,50 @@ class ImageProcessorPipeline:
                     "prompt": description,
                     "size": "3072*4096"
                 }
+                job_id = await self.create_job({
+                    "lia_image_key": lia_image_key,
+                    "target_image_key": file_name,
+                    "wavespeed_result_url": None,
+                    "r2_image_key": None,
+                    "r2_presigned_url": None,
+                    "status": "pending"
+                })
+                
                 async with aiohttp.ClientSession() as session:
                     async with session.post(self.url, json=payload, headers = {
                         "Content-Type": "application/json",
                         "Authorization": f"Bearer {self.api_key}",
                     }) as response:
                         if response.status == 200:
-                            
                             resp_data = await response.json()
                             url = resp_data.get("data", {}).get("urls", {}).get("get", None)
-                            responses.append({
-                                "url": url,
-                            })
-                            cprint(f"Response: {resp_data}", "green")
-                    
+                            status = resp_data.get("data", {}).get("status", None)
+
+                            while status not in ["completed", "failed"]:
+                                cprint(f"Waiting for result... {status}", "yellow")
+                                await asyncio.sleep(3)
+                            
+                                async with aiohttp.ClientSession() as poll_session:
+                                    async with poll_session.get(url, headers = {
+                                        "Content-Type": "application/json",
+                                        "Authorization": f"Bearer {self.api_key}"
+                                    }) as poll_response:
+                                        if poll_response.status == 200:
+                                            data = await poll_response.json()
+                                            status = data.get("data", {}).get("status", None)
+                                            if status == "completed":
+                                                cprint(f"Result completed", "green")
+                                                r2_key, r2_url = await self.download_and_upload_result(data)
+                                                await self.update_job(job_id, {
+                                                    "wavespeed_result_url": url,
+                                                    "r2_image_key": r2_key,
+                                                    "r2_presigned_url": r2_url,
+                                                    "status": "completed"
+                                                })
+                                                break
+                                        else:
+                                            text = await poll_response.text()
+                                            print(f"Error: {poll_response.status} {text}")
                         else:
                             text = await response.text()
                             print(f"Error: {response.status} {text}")

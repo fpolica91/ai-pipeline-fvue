@@ -65,10 +65,20 @@ class R2Client:
         buffer = 300
         # check if time since uploaded is less than how long the image is supposed to be valid for
         return (current_time - upload_time) < (expires_in - buffer)
+ 
+    async def get_presigned_url(self, file_name: str) -> bytes:
+        try:
+            return self.r2_client.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': self.bucket_name, 'Key': file_name},
+                ExpiresIn=self.expires_in
+            )
+        except Exception as e:
+            cprint(f"Error downloading image: {e}", "red")
+            raise Exception(str(e))
 
     async def upload_image(self, file_path: str)->str:
         try:
-        # check cache first
             file_name = os.path.basename(file_path)
             cache = self._load_cache()
             if file_name in cache and self._is_cache_valid(cache[file_name]):
@@ -101,4 +111,5 @@ class R2Client:
             cprint(f"Error uploading image: {e}", "red")
             raise Exception(str(e))
    
+
     
