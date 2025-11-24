@@ -10,12 +10,18 @@ from .r2_client import R2Client
 
 
 
-class ImageGenerator:
-    def __init__(self, source_dir: str) -> None:
+class ImageProcessorPipeline:
+    """
+    Class for swapping face of reference into target image
+    """
+
+    def __init__(self, source_dir: str, reference_image_path: str) -> None:
         self.api_key = os.getenv("WAVESPEED_API_KEY")
         self.url = "https://api.wavespeed.ai/api/v3/bytedance/seedream-v4/edit"
         self.source_dir = source_dir
         self.r2_client = R2Client()
+        self.reference_image_path = reference_image_path
+        
 
 
     async def upload_file(self, file_path: str) -> str:
@@ -47,6 +53,7 @@ class ImageGenerator:
 
     async def process_images(self) -> None:
         responses = []
+        reference_image = await self.upload_file(self.reference_image_path)
         files = await self.get_files()
         for file_name, image, description in files:
             cprint(f"Processing {file_name}...", "yellow")
@@ -55,7 +62,8 @@ class ImageGenerator:
                     "enable_base64_output": False,
                     "enable_sync_mode": False,
                     "images": [
-                        image
+                        image,
+                        reference_image
                     ],
                     "prompt": description,
                     "size": "3072*4096"
