@@ -54,10 +54,12 @@ class ImageProcessorPipeline:
             if description_file not in txt_files:
                 cprint(f"Skipping {image_file} because it does not have a description file", "red")
                 continue
+            image_path = os.path.join(self.source_dir, image_file)
             dataset_list.append((
                 file_name,
-                await self.upload_file(os.path.join(self.source_dir, image_file)),
-                open(os.path.join(self.source_dir, description_file), "r").read()
+                await self.upload_file(image_path),
+                open(os.path.join(self.source_dir, description_file), "r").read(),
+                image_path
             ))
         return dataset_list
 
@@ -107,7 +109,7 @@ class ImageProcessorPipeline:
             return False
 
 
-    async def poll_result(self, url: str, job_id: str) -> tuple[str, str]:
+    async def poll_result(self, url: str, job_id: str) -> str:
         while True:
             await asyncio.sleep(3)
             async with aiohttp.ClientSession() as poll_session:
@@ -128,15 +130,24 @@ class ImageProcessorPipeline:
                                 "r2_presigned_url": r2_url,
                                 "status": "completed"
                             })
-                            return r2_key, r2_url
+                            return r2_url
                     else:
                         text = await poll_response.text()
                         print(f"Error: {poll_response.status} {text}")
 
 
 
-    async def process_single_image(self, file_name: str, image: str, description: str, lia_image: str, lia_image_key: str) -> tuple[str, str]:
+    async def process_single_image(self, file_name: str, image: str, description: str, lia_image: str, lia_image_key: str, target_image_path: str) -> str:
         try:
+            # Determine size based on target image orientation
+            from PIL import Image as PILImage
+            with PILImage.open(target_image_path) as img:
+                width, height = img.size
+                if width > height:  # Landscape
+                    size = "4096*3072"
+                else:  # Portrait or square
+                    size = "3072*4096"
+            
             payload = {
                     "enable_base64_output": False,
                     "enable_sync_mode": False,
@@ -145,7 +156,7 @@ class ImageProcessorPipeline:
                         lia_image
                     ],
                     "prompt": description,
-                    "size": "3072*4096"
+                    "size": size
                 }
             job_id = await self.create_job({
                     "lia_image_key": lia_image_key,
@@ -163,9 +174,8 @@ class ImageProcessorPipeline:
                     if response.status == 200:
                         resp_data = await response.json()
                         url = resp_data.get("data", {}).get("urls", {}).get("get", None)
-                        await self.poll_result(url, job_id)
-                
-            return job_id
+                        r2_url = await self.poll_result(url, job_id)
+                        return r2_url
         except Exception as e:
             print(f"Error processing single image: {e}")
             return None
@@ -175,10 +185,10 @@ class ImageProcessorPipeline:
         lia_image_key = os.path.basename(self.lia_image_path)
         tasks = []
         files = await self.get_files()
-        for file_name, image, description in files:
+        for file_name, image, description, image_path in files:
             cprint(f"Processing {file_name}...", "yellow")
             try:
-                tasks.append(self.process_single_image(file_name, image, description, lia_image, lia_image_key))
+                tasks.append(self.process_single_image(file_name, image, description, lia_image, lia_image_key, image_path))
             except Exception as e:
                 print(f"Error processing image: {e}")
         results = await asyncio.gather(*tasks)

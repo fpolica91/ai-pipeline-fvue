@@ -7,6 +7,7 @@ from utils.image_generator import ImageProcessorPipeline
 from dotenv import load_dotenv
 from utils.grok import generate_seedream_prompt
 from termcolor import cprint
+from uuid import uuid4
 
 load_dotenv()
 
@@ -35,21 +36,22 @@ async def process_images_pipeline(lia_image, target_images):
             # Save lia image
             lia_path = temp_path / "lia.jpg"
             lia_image.save(lia_path)
+            file_name = f"{uuid4()}"
             # Save target images (convert from file uploads to PIL Images)
             for i, target_file in enumerate(target_images):
                 target_img = target_file[0]
                 target_img = Image.open(target_img)
-                img_name = f"target_{i:03d}"
+                img_name = f"{file_name}_target_{i:03d}"
                 img_path = temp_path / f"{img_name}.jpg"
                 target_img.save(img_path)
 
             # Generate all descriptions at once
-            target_paths = [str(temp_path / f"target_{i:03d}.jpg") for i in range(len(target_images))]
+            target_paths = [str(temp_path / f"{file_name}_target_{i:03d}.jpg") for i in range(len(target_images))]
             descriptions = await generate_descriptions_with_grok(str(lia_path), target_paths)
             
             # Write description files
             for i, description in enumerate(descriptions):
-                img_name = f"target_{i:03d}"
+                img_name = f"{file_name}_target_{i:03d}"
                 desc_path = temp_path / f"{img_name}.txt"
                
                 with open(desc_path, 'w') as f:
@@ -61,12 +63,12 @@ async def process_images_pipeline(lia_image, target_images):
                 lia_image_path=str(lia_path)
             )
             
-            await pipeline.process_images()
+            result_urls = await pipeline.process_images()
             
-            return f"Successfully processed {len(target_images)} images!"
+            return f"Successfully processed {len(target_images)} images!", result_urls
             
     except Exception as e:
-        return f"Error processing images: {str(e)}"
+        return f"Error processing images: {str(e)}", []
 
 def run_pipeline(lia_image, target_images):
     """
@@ -109,15 +111,22 @@ with gr.Blocks(title="AI Image Processing Pipeline") as demo:
         with gr.Column():
             output_text = gr.Textbox(
                 label="Processing Results",
-                lines=10,
-                max_lines=20
+                lines=5,
+                max_lines=10
+            )
+            
+            output_gallery = gr.Gallery(
+                label="Generated Images",
+                show_label=True,
+                columns=2,
+                height="auto"
             )
     
     # Event handlers
     process_btn.click(
         fn=run_pipeline,
         inputs=[lia_input, target_inputs],
-        outputs=[output_text]
+        outputs=[output_text, output_gallery]
     )
     
     # Example section
